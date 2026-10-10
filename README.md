@@ -7,6 +7,7 @@ A compact, centered top-bar widget for QuickShell. It combines a clock, searchab
 - Shows the clock when no media is playing.
 - Searches installed desktop applications and can filter to music/audio apps.
 - Shows album art and a scrolling track title while music plays.
+- Includes five animated color themes alongside the album-art palette.
 - Expands to playback controls and track seeking for MPRIS players.
 - Offers 12-hour and 24-hour clock formats.
 
@@ -37,4 +38,4 @@ Add `quickshell --config dynamic-island` to your desktop environment or composit
 
 ## Settings
 
-Hover the capsule to open the app launcher when idle or media controls during playback. The 12h/24h selection and app filter are retained across QuickShell config reloads.
+Hover the capsule to open the app launcher when idle or media controls during playback. Choose a theme in the launcher; the theme, 12h/24h selection, and app filter are retained across QuickShell config reloads.

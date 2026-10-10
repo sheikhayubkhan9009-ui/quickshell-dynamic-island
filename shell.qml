@@ -21,6 +21,14 @@ PanelWindow {
     property bool isLauncherOpen: false
     property string selectedPlayerId: ""
     property int paletteIndex: 0
+    readonly property var themeNames: ["Album Art", "Aurora", "Ember", "Ocean", "Citrus", "Rose"]
+    readonly property var themePalettes: [
+        ["#64dfc1", "#37b9aa", "#9bf6e0", "#21867e", "#d2fff3"],
+        ["#ff765e", "#f6b94b", "#e7426f", "#ffc07a", "#a92d5e"],
+        ["#4db6e5", "#397ed0", "#79e0d2", "#245398", "#b7f2ed"],
+        ["#b9db45", "#e9c843", "#55bd76", "#e8873b", "#f1f3a2"],
+        ["#ff75a7", "#c77dff", "#ffad69", "#ef476f", "#ffd2e2"]
+    ]
     readonly property var player: {
         var players = Mpris.players.values
         if (players.length === 0)
@@ -39,6 +47,12 @@ PanelWindow {
         return players[0]
     }
     function paletteColor(offset) {
+        var selectedTheme = Math.max(0, Math.min(themePalettes.length, preferences.themeIndex))
+        if (selectedTheme > 0) {
+            var theme = themePalettes[selectedTheme - 1]
+            return theme[offset % theme.length]
+        }
+
         var colors = albumPalette.colors
         if (!colors || colors.length === 0)
             return Qt.hsla((paletteIndex * 0.13 + offset * 0.31) % 1, 0.78, 0.63, 1)
@@ -51,7 +65,7 @@ PanelWindow {
             1
         )
     }
-    readonly property color accentColor: paletteColor(0)
+    property color accentColor: paletteColor(0)
     readonly property bool hasActiveMusic: player !== null && player.isPlaying
     readonly property bool showLauncher: !hasActiveMusic || isLauncherOpen
 
@@ -61,13 +75,23 @@ PanelWindow {
 
         property bool use24HourClock: true
         property bool musicOnly: false
+        property bool keepExpanded: false
+        property int themeIndex: 0
     }
+
+    Component.onCompleted: isExpanded = preferences.keepExpanded
 
     function clockText() {
         return Qt.formatDateTime(
             systemClock.date,
             preferences.use24HourClock ? "hh:mm" : "h:mm AP"
         )
+    }
+
+    function toggleExpandedPin() {
+        preferences.keepExpanded = !preferences.keepExpanded
+        isExpanded = true
+        hideTimer.stop()
     }
 
     SystemClock {
@@ -120,11 +144,21 @@ PanelWindow {
         }
     }
 
+    Behavior on accentColor {
+        ColorAnimation {
+            duration: 700
+            easing.type: Easing.OutCubic
+        }
+    }
+
     Timer {
         id: hideTimer
         interval: 350
         repeat: false
-        onTriggered: playerRoot.isExpanded = false
+        onTriggered: {
+            if (!preferences.keepExpanded)
+                playerRoot.isExpanded = false
+        }
     }
 
     Timer {
@@ -140,6 +174,7 @@ PanelWindow {
         running: playerRoot.player !== null
             && playerRoot.player.isPlaying
             && albumPalette.colors.length > 1
+            && preferences.themeIndex === 0
         onTriggered: playerRoot.paletteIndex = (playerRoot.paletteIndex + 1) % albumPalette.colors.length
     }
 
@@ -195,7 +230,7 @@ PanelWindow {
                 if (hovered) {
                     hideTimer.stop()
                     playerRoot.isExpanded = true
-                } else if (playerRoot.isExpanded) {
+                } else if (playerRoot.isExpanded && !preferences.keepExpanded) {
                     hideTimer.start()
                 }
             }
@@ -550,7 +585,7 @@ PanelWindow {
                     width: 108
                     height: 28
                     anchors.top: parent.top
-                    anchors.right: appsButton.left
+                    anchors.right: pinMusicButton.left
                     anchors.rightMargin: 8
                     model: Mpris.players.values
                     textRole: "identity"
@@ -616,6 +651,33 @@ PanelWindow {
                         color: "#202126"
                         border.color: playerRoot.accentColor
                         radius: 8
+                    }
+                }
+
+                Button {
+                    id: pinMusicButton
+                    width: 42
+                    height: 28
+                    anchors.top: parent.top
+                    anchors.right: appsButton.left
+                    anchors.rightMargin: 8
+                    text: preferences.keepExpanded ? "Pinned" : "Pin"
+                    onClicked: playerRoot.toggleExpandedPin()
+
+                    contentItem: Text {
+                        text: parent.text
+                        color: playerRoot.accentColor
+                        font.family: "Sans Serif"
+                        font.pixelSize: 11
+                        font.weight: Font.DemiBold
+                        horizontalAlignment: Text.AlignHCenter
+                        verticalAlignment: Text.AlignVCenter
+                    }
+
+                    background: Rectangle {
+                        radius: 8
+                        color: "#25262b"
+                        border.color: Qt.darker(playerRoot.accentColor, 1.5)
                     }
                 }
 
@@ -768,7 +830,7 @@ PanelWindow {
                 spacing: 8
 
                 Text {
-                    width: parent.width - closeLauncher.width - parent.spacing
+                    width: parent.width - closeLauncher.width - pinLauncherButton.width - parent.spacing * 2
                     text: "Launch an app"
                     color: "#f4f4f5"
                     font.family: "Sans Serif"
@@ -796,6 +858,30 @@ PanelWindow {
                     background: Rectangle {
                         radius: 7
                         color: "#25262b"
+                    }
+                }
+
+                Button {
+                    id: pinLauncherButton
+                    width: 42
+                    height: 28
+                    text: preferences.keepExpanded ? "Pinned" : "Pin"
+                    onClicked: playerRoot.toggleExpandedPin()
+
+                    contentItem: Text {
+                        text: parent.text
+                        color: playerRoot.accentColor
+                        font.family: "Sans Serif"
+                        font.pixelSize: 11
+                        font.weight: Font.DemiBold
+                        horizontalAlignment: Text.AlignHCenter
+                        verticalAlignment: Text.AlignVCenter
+                    }
+
+                    background: Rectangle {
+                        radius: 7
+                        color: "#25262b"
+                        border.color: Qt.darker(playerRoot.accentColor, 1.5)
                     }
                 }
             }
@@ -897,6 +983,72 @@ PanelWindow {
                 }
             }
 
+            ComboBox {
+                id: themePicker
+                width: parent.width
+                height: 28
+                model: playerRoot.themeNames
+                currentIndex: preferences.themeIndex
+                onActivated: index => {
+                    preferences.themeIndex = index
+                    playerRoot.paletteIndex = 0
+                }
+
+                contentItem: Text {
+                    leftPadding: 10
+                    rightPadding: 24
+                    text: themePicker.currentText
+                    color: playerRoot.accentColor
+                    font.family: "Sans Serif"
+                    font.pixelSize: 11
+                    font.weight: Font.DemiBold
+                    verticalAlignment: Text.AlignVCenter
+                    elide: Text.ElideRight
+                }
+
+                indicator: Text {
+                    anchors.right: parent.right
+                    anchors.rightMargin: 9
+                    anchors.verticalCenter: parent.verticalCenter
+                    text: "▾"
+                    color: playerRoot.accentColor
+                    font.pixelSize: 12
+                }
+
+                background: Rectangle {
+                    radius: 8
+                    color: "#25262b"
+                    border.color: Qt.darker(playerRoot.accentColor, 1.5)
+                }
+
+                delegate: ItemDelegate {
+                    required property var modelData
+                    required property int index
+                    width: themePicker.width
+                    highlighted: themePicker.highlightedIndex === index
+
+                    contentItem: Text {
+                        text: modelData
+                        color: highlighted ? "#111216" : "#f4f4f5"
+                        font.family: "Sans Serif"
+                        font.pixelSize: 12
+                        verticalAlignment: Text.AlignVCenter
+                        elide: Text.ElideRight
+                    }
+
+                    background: Rectangle {
+                        radius: 5
+                        color: highlighted ? playerRoot.accentColor : "transparent"
+                    }
+                }
+
+                popup.background: Rectangle {
+                    color: "#202126"
+                    border.color: playerRoot.accentColor
+                    radius: 8
+                }
+            }
+
             TextField {
                 id: appSearch
                 width: parent.width
@@ -916,7 +1068,7 @@ PanelWindow {
 
             ListView {
                 width: parent.width
-                height: parent.height - 118
+                height: parent.height - 155
                 clip: true
                 spacing: 3
                 model: {
